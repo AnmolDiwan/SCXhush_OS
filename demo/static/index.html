@@ -242,6 +242,27 @@
                     </ul>
                 </div>
 
+                <!-- Counterfactual Latency Diagnosis Engine (NexusOS / UFS) -->
+                <div class="card">
+                    <div class="card-header-flex">
+                        <span class="card-title">Counterfactual Causal Verifier</span>
+                        <span id="cf-verdict-badge" class="badge-fg">READY</span>
+                    </div>
+                    <p style="font-size: 11px; color: var(--text-secondary); margin-bottom: 10px;">
+                        Executes paired reruns with shared seeds &amp; 95% bootstrap CI to confirm or refute causal latency diagnoses.
+                    </p>
+                    <div style="display: flex; gap: 6px; margin-bottom: 10px;">
+                        <button class="btn-action" style="flex: 1; padding: 6px;" onclick="runCounterfactual('CPU_CONTENTION')">CPU Contention</button>
+                        <button class="btn-action" style="flex: 1; padding: 6px;" onclick="runCounterfactual('DECOY_BACKGROUND')">Decoy (Refute)</button>
+                        <button class="btn-action" style="flex: 1; padding: 6px;" onclick="runCounterfactual('LOCK_CONTENTION')">Lock Contention</button>
+                    </div>
+                    <div id="cf-result-box" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 6px; padding: 8px; font-size: 11px; font-family: monospace; display: none;">
+                        <div><strong>Diagnosis:</strong> <span id="cf-diag-id">--</span> &bull; <strong>Hypothesis:</strong> <span id="cf-hyp">--</span></div>
+                        <div><strong>Median Effect:</strong> <span id="cf-effect">--</span> &bull; <strong>95% CI:</strong> [<span id="cf-ci-low">--</span>, <span id="cf-ci-high">--</span>]</div>
+                        <div id="cf-explanation" style="margin-top: 4px; color: #94a3b8; font-family: sans-serif;"></div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>

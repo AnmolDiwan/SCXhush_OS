@@ -35,6 +35,7 @@ from sim.scheduler_core import (
     CLASS_NAMES,
 )
 from real_engine.hardware_harness import HardwareSchedulerHarness
+from engine.counterfactual_engine import CounterfactualDiagnosisEngine
 
 app = FastAPI(title="scx_hush Live Scheduler Visualizer")
 STATIC_DIR = Path(__file__).parent / "static"
@@ -43,9 +44,11 @@ REPORTS_DIR = Path(__file__).parent.parent / "reports"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.mount("/reports", StaticFiles(directory=str(REPORTS_DIR)), name="reports")
 
-# Real Hardware Execution Harness
+# Real Hardware Execution Harness & Counterfactual Engine
 hardware_harness = HardwareSchedulerHarness(num_bg_workers=8)
 hardware_harness.start()
+
+cf_engine = CounterfactualDiagnosisEngine(delta_threshold=0.30)
 
 # Global Demo State
 class DemoState:
@@ -351,23 +354,28 @@ def test_inversion_tier(req: ActionRequest):
     bg_pid = demo_state.bg_pids[0]
     
     if tier == "tier1":
-        # Tier 1: Hints via libhush uprobe
         demo_state.scheduler.hint_critical_enter(bg_pid, demo_state.sim_time)
         demo_state.log_event("info", f"Tier 1 (libhush Hint): uprobe caught hush_critical_enter() -> Task {bg_pid} promoted to FOREGROUND")
     elif tier == "tier2":
-        # Tier 2: FUTEX_LOCK_PI
         demo_state.scheduler.futex_wait(fg_pid, demo_state.lock_addr, demo_state.sim_time)
         demo_state.log_event("info", f"Tier 2 (FUTEX_LOCK_PI): Tracepoint extracted owner TID {bg_pid} from futex word -> Boosted!")
     elif tier == "tier3":
-        # Tier 3: glibc mutex heuristic
         demo_state.scheduler.futex_wait(fg_pid, demo_state.lock_addr, demo_state.sim_time)
         demo_state.log_event("info", f"Tier 3 (glibc Mutex): Heuristic resolved mutex owner field -> Boosted!")
     elif tier == "tier4":
-        # Tier 4: D-State escape
         demo_state.log_event("warn", f"Tier 4 (D-State Escape): Uninterruptible sleep >10ms -> Opened 20ms escape window")
         demo_state.scheduler.dispatch(0, demo_state.sim_time)
         
     return {"status": "ok", "tier": tier}
+
+
+@app.post("/api/verify_counterfactual")
+def verify_counterfactual(req: ActionRequest):
+    from dataclasses import asdict
+    hyp = req.target or "CPU_CONTENTION"
+    res = cf_engine.run_counterfactual_experiment(hyp)
+    demo_state.log_event("info", f"Counterfactual Verdict for {hyp}: {res.verdict} (Median Effect: {res.median_effect*100:.1f}%, CI: [{res.ci_lower*100:.1f}%, {res.ci_upper*100:.1f}%])")
+    return {"status": "ok", "verdict_data": asdict(res)}
 
 
 @app.post("/api/action")

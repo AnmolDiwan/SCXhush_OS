@@ -358,6 +358,40 @@ async function testInversionTier(tierName) {
     }
 }
 
+// Counterfactual Causal Verification Handler
+async function runCounterfactual(hypothesis) {
+    try {
+        const resp = await fetch("/api/verify_counterfactual", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "verify_cf", target: hypothesis })
+        });
+        const res = await resp.json();
+        if (res.status === "ok") {
+            const data = res.verdict_data;
+            const badge = document.getElementById("cf-verdict-badge");
+            badge.innerText = data.verdict;
+            if (data.verdict === "CONFIRMED") {
+                badge.className = "badge-fg";
+            } else if (data.verdict === "REFUTED") {
+                badge.className = "core-badge badge-bg";
+            } else {
+                badge.className = "core-badge badge-idle";
+            }
+
+            document.getElementById("cf-diag-id").innerText = data.diagnosis_id;
+            document.getElementById("cf-hyp").innerText = data.hypothesis;
+            document.getElementById("cf-effect").innerText = `${(data.median_effect * 100).toFixed(1)}% reduction`;
+            document.getElementById("cf-ci-low").innerText = `${(data.ci_lower * 100).toFixed(1)}%`;
+            document.getElementById("cf-ci-high").innerText = `${(data.ci_upper * 100).toFixed(1)}%`;
+            document.getElementById("cf-explanation").innerText = data.explanation;
+            document.getElementById("cf-result-box").style.display = "block";
+        }
+    } catch (e) {
+        console.error("Counterfactual check failed:", e);
+    }
+}
+
 // Feature 1: Live Policy Editor Modal Handlers
 async function togglePolicyModal() {
     const modal = document.getElementById("policy-modal");
