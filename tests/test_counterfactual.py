@@ -50,3 +50,4 @@ def test_counterfactual_experiment_noisy_inconclusive():
     engine = CounterfactualDiagnosisEngine(delta_threshold=0.40)
     result = engine.run_counterfactual_experiment("NOISY_UNSTABLE", n_pairs=8, base_seed=789)
     assert result.verdict == "INCONCLUSIVE"
+

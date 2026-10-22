@@ -172,3 +172,4 @@ class CounterfactualDiagnosisEngine:
             explanation=expl,
             pairs=[asdict(p) for p in pairs],
         )
+
