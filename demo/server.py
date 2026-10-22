@@ -34,10 +34,15 @@ from sim.scheduler_core import (
     CLASS_BACKGROUND,
     CLASS_NAMES,
 )
+from real_engine.hardware_harness import HardwareSchedulerHarness
 
 app = FastAPI(title="scx_hush Live Scheduler Visualizer")
 STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+# Real Hardware Execution Harness
+hardware_harness = HardwareSchedulerHarness(num_bg_workers=8)
+hardware_harness.start()
 
 # Global Demo State
 class DemoState:
@@ -219,6 +224,11 @@ class DemoState:
                 "task": task_info,
             })
 
+        # Sync hardware harness mode
+        hardware_harness.set_scheduler_mode(self.mode)
+
+        hw = hardware_harness.get_live_metrics()
+
         return {
             "mode": self.mode,
             "scenario": self.active_scenario,
@@ -231,10 +241,11 @@ class DemoState:
             },
             "stats": {
                 "guard_firings": self.scheduler.stats["guard_firings"],
-                "boost_count": self.scheduler.stats["boost_count"],
+                "boost_count": self.scheduler.stats["boost_count"] + hw["boost_events"],
                 "preemptions_bg": self.scheduler.stats["preemptions"][CLASS_BACKGROUND],
                 "hint_abuse_count": self.scheduler.stats["hint_abuse_count"],
             },
+            "hardware": hw,
             "latency_history": self.latency_history,
             "event_log": self.event_log[-8:],
         }
@@ -315,6 +326,7 @@ def perform_action(req: ActionRequest):
         return {"status": "error", "message": "No FG task to demote"}
 
     elif act == "trigger_inversion_lock":
+        hardware_harness.trigger_contention_burst()
         # FG thread blocks on futex lock held by BG thread
         if demo_state.active_scenario != "inversion":
             demo_state.setup_scenario("inversion")
@@ -361,3 +373,4 @@ if __name__ == "__main__":
     print("  🌐 Open in browser: http://127.0.0.1:8080")
     print("="*60 + "\n")
     uvicorn.run("demo.server:app", host="127.0.0.1", port=8080, log_level="warning")
+

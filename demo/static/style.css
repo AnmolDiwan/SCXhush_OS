@@ -42,7 +42,7 @@ body {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 12px;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
 }
 
 .brand {
@@ -130,12 +130,12 @@ body {
 /* Quick Stats */
 .quick-stats {
     display: flex;
-    gap: 12px;
+    gap: 10px;
 }
 
 .stat-pill {
     background: rgba(255, 255, 255, 0.04);
-    padding: 6px 14px;
+    padding: 6px 12px;
     border-radius: 8px;
     border: 1px solid var(--border-color);
     display: flex;
@@ -144,15 +144,44 @@ body {
 }
 
 .stat-label {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--text-muted);
     text-transform: uppercase;
 }
 
 .stat-val {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--text-primary);
+}
+
+.stat-highlight {
+    color: #38bdf8;
+}
+
+/* Hardware System Banner */
+.hardware-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+}
+
+.hw-icon {
+    font-size: 14px;
+    color: #38bdf8;
+    margin-right: 6px;
+}
+
+.taskmgr-hint {
+    color: #f59e0b;
+    font-weight: 500;
 }
 
 /* Layout */
@@ -172,23 +201,23 @@ body {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 12px;
-    padding: 18px 20px;
+    padding: 16px 20px;
 }
 
 .card-title {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
 }
 
 .card-header-flex {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
 }
 
 .card-header-flex .card-title {
@@ -196,7 +225,7 @@ body {
 }
 
 .live-tag {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--color-fg);
     font-weight: 700;
     background: rgba(16, 185, 129, 0.1);
@@ -236,36 +265,67 @@ body {
     font-weight: 600;
 }
 
+/* 60 FPS Smoothness Canvas */
+.smoothness-canvas-container {
+    background: #060911;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px;
+}
+
+#smoothness-canvas {
+    width: 100%;
+    height: 70px;
+    display: block;
+}
+
+.canvas-legend {
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 6px;
+    padding-left: 4px;
+}
+
+.legend-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+}
+
+.dot-green { background-color: var(--color-fg); }
+.dot-red { background-color: var(--color-danger); }
+
 /* 4 CPU Cores Grid */
 .cores-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    gap: 10px;
 }
 
 .core-card {
     background: rgba(0, 0, 0, 0.25);
     border: 1px solid var(--border-color);
-    border-radius: 10px;
-    padding: 14px;
-    position: relative;
-    overflow: hidden;
-    transition: border-color 0.2s ease;
+    border-radius: 8px;
+    padding: 12px;
 }
 
 .core-header {
     display: flex;
     justify-content: space-between;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     color: var(--text-muted);
 }
 
 .core-task-name {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -273,9 +333,9 @@ body {
 
 .core-badge {
     display: inline-block;
-    padding: 3px 8px;
+    padding: 2px 6px;
     border-radius: 4px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
 }
 
@@ -310,7 +370,7 @@ body {
 .dsq-container {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 
 .dsq-row {
@@ -318,7 +378,7 @@ body {
     justify-content: space-between;
     align-items: center;
     background: rgba(0, 0, 0, 0.2);
-    padding: 12px 16px;
+    padding: 10px 14px;
     border-radius: 8px;
     border-left: 4px solid var(--border-color);
 }
@@ -334,7 +394,7 @@ body {
 }
 
 .dsq-badge {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
 }
 
@@ -344,17 +404,17 @@ body {
 }
 
 .dsq-count {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 700;
     background: rgba(255, 255, 255, 0.06);
-    padding: 4px 12px;
+    padding: 3px 10px;
     border-radius: 6px;
 }
 
 /* Actions Grid */
 .actions-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
     gap: 10px;
 }
 
@@ -383,6 +443,16 @@ body {
 .btn-danger:hover {
     border-color: #ef4444;
     color: #f87171;
+}
+
+.btn-audio {
+    background: rgba(147, 51, 234, 0.15);
+    border-color: rgba(147, 51, 234, 0.4);
+    color: #c084fc;
+}
+
+.btn-audio:hover {
+    background: rgba(147, 51, 234, 0.3);
 }
 
 /* Terminal Log */
@@ -441,7 +511,7 @@ body {
 /* Summary Box */
 .summary-list {
     margin-left: 18px;
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-secondary);
     display: flex;
     flex-direction: column;
