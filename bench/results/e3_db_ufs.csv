@@ -1,0 +1,4 @@
+baseline,throughput_tps,p99_latency_ms
+B1,1420.0,18.4
+B3,2150.0,12.1
+B6,2890.0,7.9
