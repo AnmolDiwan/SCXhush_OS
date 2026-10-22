@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>scx_hush — Live Scheduler Visualizer & Demo</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Navigation Bar -->
+        <header class="navbar">
+            <div class="brand">
+                <span class="logo-dot"></span>
+                <span class="brand-title">scx_hush</span>
+                <span class="brand-subtitle">Unfair-by-Design CPU Scheduler</span>
+            </div>
+            
+            <div class="mode-selector">
+                <span class="mode-label">Scheduler Mode:</span>
+                <button id="btn-toggle-mode" class="mode-badge mode-hush" onclick="toggleMode()">
+                    <span class="pulse"></span>
+                    <span id="mode-text">scx_hush (Active)</span>
+                </button>
+            </div>
+
+            <div class="quick-stats">
+                <div class="stat-pill">
+                    <span class="stat-label">Guard Firings</span>
+                    <span id="stat-guard" class="stat-val">0</span>
+                </div>
+                <div class="stat-pill">
+                    <span class="stat-label">PI Boosts</span>
+                    <span id="stat-boosts" class="stat-val">0</span>
+                </div>
+                <div class="stat-pill">
+                    <span class="stat-label">BG Preempts</span>
+                    <span id="stat-preempts" class="stat-val">0</span>
+                </div>
+                <div class="stat-pill">
+                    <span class="stat-label">Abuse Blocks</span>
+                    <span id="stat-abuse" class="stat-val">0</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <div class="main-content">
+            <!-- Left Column: Cores, Queues, Scenarios -->
+            <div class="control-column">
+                
+                <!-- Scenario Selector Card -->
+                <div class="card scenario-card">
+                    <div class="card-title">Select Workload Scenario</div>
+                    <div class="scenario-buttons">
+                        <button class="btn-scenario active" id="scen-laptop" onclick="selectScenario('laptop')">
+                            💻 Laptop (Video Call vs Build)
+                        </button>
+                        <button class="btn-scenario" id="scen-robot" onclick="selectScenario('robot')">
+                            🤖 Robot (100 Hz Loop vs zstd)
+                        </button>
+                        <button class="btn-scenario" id="scen-database" onclick="selectScenario('database')">
+                            🗄️ Database (OLTP vs VACUUM)
+                        </button>
+                        <button class="btn-scenario" id="scen-inversion" onclick="selectScenario('inversion')">
+                            ⚡ Priority Inversion Micro
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4 CPU Cores Grid -->
+                <div class="card">
+                    <div class="card-header-flex">
+                        <span class="card-title">Active CPU Cores (sched_ext Dispatch)</span>
+                        <span class="live-tag">LIVE 20 Hz</span>
+                    </div>
+                    <div class="cores-grid" id="cores-container">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Dispatch Queues (DSQs) -->
+                <div class="card">
+                    <div class="card-title">sched_ext Dispatch Queues (DSQs)</div>
+                    <div class="dsq-container">
+                        <div class="dsq-row dsq-fg">
+                            <div class="dsq-info">
+                                <span class="dsq-badge">FG_DSQ (ID: 1)</span>
+                                <span class="dsq-desc">Virtual-Time Priority Queue &bull; 5 ms slice</span>
+                            </div>
+                            <span class="dsq-count" id="count-fg">0</span>
+                        </div>
+                        <div class="dsq-row dsq-normal">
+                            <div class="dsq-info">
+                                <span class="dsq-badge">NORMAL_DSQ (ID: 2)</span>
+                                <span class="dsq-desc">Virtual-Time &bull; 10 ms slice</span>
+                            </div>
+                            <span class="dsq-count" id="count-normal">0</span>
+                        </div>
+                        <div class="dsq-row dsq-bg">
+                            <div class="dsq-info">
+                                <span class="dsq-badge">BG_DSQ (ID: 3)</span>
+                                <span class="dsq-desc">Strict FIFO (Drained only on idle) &bull; 20 ms slice</span>
+                            </div>
+                            <span class="dsq-count" id="count-bg">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interactive Interventions Panel -->
+                <div class="card actions-card">
+                    <div class="card-title">Interactive Interventions & CLI Actions</div>
+                    <div class="actions-grid">
+                        <button class="btn-action btn-warn" onclick="triggerInversion()">
+                            🔒 Inject Futex Lock Contention
+                        </button>
+                        <button class="btn-action" onclick="triggerStarvation()">
+                            ⏳ Trigger Starvation Guard
+                        </button>
+                        <button class="btn-action" onclick="promoteTask()">
+                            ⬆️ hushctl promote (to FG)
+                        </button>
+                        <button class="btn-action" onclick="demoteTask()">
+                            ⬇️ hushctl demote (to BG)
+                        </button>
+                        <button class="btn-action btn-danger" onclick="triggerAbuse()">
+                            ⚠️ Simulate Hint Abuse (>10%)
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Column: Live Latency Chart & Kernel Event Log -->
+            <div class="analytics-column">
+                
+                <!-- Live Real-Time Latency Waveform -->
+                <div class="card chart-card">
+                    <div class="card-header-flex">
+                        <span class="card-title">Foreground Wakeup Latency (Real-time ms)</span>
+                        <span id="chart-comparison-tag" class="badge-hush">Strict Isolation Mode</span>
+                    </div>
+                    <div id="latency-plot" style="height: 280px; width: 100%;"></div>
+                </div>
+
+                <!-- Kernel Event Stream & Verification Audit -->
+                <div class="card event-card">
+                    <div class="card-header-flex">
+                        <span class="card-title">Kernel Trace & Scheduler Event Stream</span>
+                        <span class="terminal-tag">BPF Hook RingBuffer</span>
+                    </div>
+                    <div class="terminal-window" id="event-terminal">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Novelty Summary Box -->
+                <div class="card summary-card">
+                    <div class="card-title">Key Mechanism Verification</div>
+                    <ul class="summary-list">
+                        <li><strong>Zero Application Changes:</strong> Resolves class hierarchy dynamically from cgroups and policy rules.</li>
+                        <li><strong>Immediate Core Preemption:</strong> <code>scx_bpf_kick_cpu(SCX_KICK_PREEMPT)</code> drops background threads immediately when foreground arrives.</li>
+                        <li><strong>4-Tier Inversion Guarantee:</strong> Elevates lock holders before the 2.0s starvation guard expires.</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

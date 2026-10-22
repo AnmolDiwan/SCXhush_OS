@@ -79,3 +79,4 @@ def test_virtual_time_sharing_among_foreground():
 
     dispatched = sched.dispatch(cpu_id=0, now=t_now)
     assert dispatched.tid == t2.tid
+

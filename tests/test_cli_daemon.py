@@ -65,3 +65,4 @@ def test_cli_reload(running_daemon):
     port = running_daemon
     res = send_command("reload", {}, port=port)
     assert res.get("status") == "ok"
+

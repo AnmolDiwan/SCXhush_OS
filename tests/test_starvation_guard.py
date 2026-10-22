@@ -71,3 +71,4 @@ def test_starvation_guard_per_cpu_rate_limiting():
     # Dispatch at t0 + 2.13s: rate limit must prevent second guard slice within 2.0s!
     d2 = sched.dispatch(cpu_id=0, now=t0 + 2.13)
     assert d2.tid == fg.tid
+

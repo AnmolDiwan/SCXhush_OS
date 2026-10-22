@@ -83,3 +83,4 @@ def test_boost_expiry():
     assert task.effective_class(t0 + 0.020) == CLASS_FOREGROUND
     # After 50 ms
     assert task.effective_class(t0 + 0.051) == CLASS_BACKGROUND
+

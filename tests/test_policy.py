@@ -75,3 +75,4 @@ def test_policy_reload_generation_bump():
     # Reload bumps generation
     sched.load_policy(SAMPLE_POLICY, is_raw_str=True)
     assert sched.policy_generation == gen1 + 1
+
