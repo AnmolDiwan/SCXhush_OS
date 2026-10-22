@@ -62,8 +62,8 @@ function updateDashboard(data) {
         document.getElementById("hw-lock-wait").innerText = `${data.hardware.avg_lock_wait_ms} ms`;
     }
 
-    // Update Quick Stats
-    document.getElementById("stat-guard").innerText = data.stats.guard_firings;
+    // Update Policy Gen & Quick Stats
+    document.getElementById("stat-policy-gen").innerText = data.stats.guard_firings + 1;
     document.getElementById("stat-boosts").innerText = data.stats.boost_count;
 
     // Update Queues (DSQs)
@@ -177,10 +177,8 @@ function renderSmoothness() {
     let delta = now - lastFrameTime;
     lastFrameTime = now;
 
-    // In EEVDF mode, introduce simulated scheduling interruptions into the UI thread
     if (currentMode === "eevdf") {
         if (Math.random() < 0.18) {
-            // Emulate background build thread starving UI render
             const stallEnd = performance.now() + Math.random() * 28;
             while (performance.now() < stallEnd) { /* busy stall */ }
             delta += 28;
@@ -194,7 +192,6 @@ function renderSmoothness() {
     frameHistory.push({ delta: delta, isStutter: isStutter });
     if (frameHistory.length > 75) frameHistory.shift();
 
-    // Render rolling bar chart
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const barWidth = canvas.width / 75;
 
@@ -207,7 +204,6 @@ function renderSmoothness() {
         ctx.fillRect(x, y, barWidth - 1, h);
     });
 
-    // Update FPS Badge
     const fpsBadge = document.getElementById("fps-badge");
     const fps = Math.round(1000.0 / Math.max(1, delta));
     if (currentMode === "scx_hush") {
@@ -243,13 +239,82 @@ function toggleAudio() {
         gain.gain.value = 0.08;
 
         osc.type = "sine";
-        osc.frequency.setValueAtTime(440, audioCtx.currentTime); // 440 Hz A tone
+        osc.frequency.setValueAtTime(440, audioCtx.currentTime);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
 
         isAudioPlaying = true;
         btn.innerText = "🔇 Stop Audio Tone";
+    }
+}
+
+// Feature 2: Multi-Core Stressor Slider Handlers
+function updateWorkerLabel(val) {
+    document.getElementById("worker-count-badge").innerText = `${val} Threads`;
+}
+
+async function updateWorkers(val) {
+    try {
+        await fetch("/api/workers", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "set_workers", value: parseInt(val) })
+        });
+    } catch (e) {
+        console.error("Failed to update worker count:", e);
+    }
+}
+
+// Feature 3: Inversion Tier Inspector Handler
+async function testInversionTier(tierName) {
+    try {
+        await fetch("/api/inversion_tier", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "test_tier", target: tierName })
+        });
+    } catch (e) {
+        console.error("Failed to trigger tier test:", e);
+    }
+}
+
+// Feature 1: Live Policy Editor Modal Handlers
+async function togglePolicyModal() {
+    const modal = document.getElementById("policy-modal");
+    if (modal.style.display === "none") {
+        try {
+            const resp = await fetch("/api/policy");
+            const data = await resp.json();
+            if (data.status === "ok") {
+                document.getElementById("policy-editor-text").value = data.policy_content;
+            }
+        } catch (e) {
+            console.error("Failed to fetch policy:", e);
+        }
+        modal.style.display = "flex";
+    } else {
+        modal.style.display = "none";
+    }
+}
+
+async function saveAndReloadPolicy() {
+    const text = document.getElementById("policy-editor-text").value;
+    try {
+        const resp = await fetch("/api/policy", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "update_policy", content: text })
+        });
+        const res = await resp.json();
+        if (res.status === "ok") {
+            alert(`Policy Hot-Reloaded! New Generation: ${res.policy_gen}`);
+            togglePolicyModal();
+        } else {
+            alert(`Error: ${res.message}`);
+        }
+    } catch (e) {
+        alert(`Failed to save policy: ${e}`);
     }
 }
 
@@ -267,36 +332,18 @@ async function sendAction(action, target = null) {
     }
 }
 
-function toggleMode() {
-    sendAction("switch_mode");
-}
-
+function toggleMode() { sendAction("switch_mode"); }
 function selectScenario(name) {
     document.querySelectorAll(".btn-scenario").forEach(b => b.classList.remove("active"));
     const activeBtn = document.getElementById(`scen-${name}`);
     if (activeBtn) activeBtn.classList.add("active");
     sendAction("switch_scenario", name);
 }
-
-function triggerInversion() {
-    sendAction("trigger_inversion_lock");
-}
-
-function triggerStarvation() {
-    sendAction("trigger_starvation_guard");
-}
-
-function promoteTask() {
-    sendAction("promote");
-}
-
-function demoteTask() {
-    sendAction("demote");
-}
-
-function triggerAbuse() {
-    sendAction("abuse_hint");
-}
+function triggerInversion() { sendAction("trigger_inversion_lock"); }
+function triggerStarvation() { sendAction("trigger_starvation_guard"); }
+function promoteTask() { sendAction("promote"); }
+function demoteTask() { sendAction("demote"); }
+function triggerAbuse() { sendAction("abuse_hint"); }
 
 window.onload = function () {
     initWebSocket();

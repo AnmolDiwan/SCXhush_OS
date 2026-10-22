@@ -96,6 +96,30 @@ class HardwareSchedulerHarness:
         self.mode = mode
         self._apply_os_priorities()
 
+    def set_worker_count(self, count: int):
+        """Dynamically adjusts the number of active CPU burner threads (1 to 12)."""
+        count = max(1, min(12, count))
+        if count == self.num_bg_workers:
+            return
+
+        self.num_bg_workers = count
+        if not self.running:
+            return
+
+        # Stop existing background workers cleanly
+        self.bg_stop_event.set()
+        for t in self.bg_threads:
+            t.join(timeout=0.2)
+        self.bg_threads.clear()
+
+        # Restart with new worker count
+        self.bg_stop_event.clear()
+        for i in range(self.num_bg_workers):
+            t = threading.Thread(target=self._bg_worker_loop, args=(i,), daemon=True)
+            self.bg_threads.append(t)
+            t.start()
+        self._apply_os_priorities()
+
     def _apply_os_priorities(self):
         """
         Dynamically applies OS priority classes and thread priorities.
@@ -243,3 +267,4 @@ class HardwareSchedulerHarness:
             "lock_contention_active": self.lock_contention_active,
             "active_threads": len(self.bg_threads) + 1,
         }
+

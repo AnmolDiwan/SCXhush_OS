@@ -40,26 +40,39 @@
                     <span id="hw-lock-wait" class="stat-val">0.0 ms</span>
                 </div>
                 <div class="stat-pill">
-                    <span class="stat-label">PI Boosts</span>
-                    <span id="stat-boosts" class="stat-val">0</span>
+                    <span class="stat-label">Policy Gen</span>
+                    <span id="stat-policy-gen" class="stat-val">1</span>
                 </div>
                 <div class="stat-pill">
-                    <span class="stat-label">Guard Firings</span>
-                    <span id="stat-guard" class="stat-val">0</span>
+                    <span class="stat-label">PI Boosts</span>
+                    <span id="stat-boosts" class="stat-val">0</span>
                 </div>
             </div>
         </header>
 
-        <!-- Hardware System Banner -->
+        <!-- Hardware System Banner with Dynamic Stressor Slider -->
         <div class="hardware-banner">
-            <span class="hw-icon">&#9881;</span>
-            <span><strong>Target Hardware:</strong> Intel Core i5-1235U (10 Cores, 12 Threads) &bull; <strong>Background Workers:</strong> 8 Active CPU Burner Threads &bull; <strong>Foreground Loop:</strong> 100 Hz High-Precision Timer</span>
-            <span class="taskmgr-hint">💡 Open Task Manager (Ctrl+Shift+Esc) to verify live CPU load</span>
+            <div class="hw-info">
+                <span class="hw-icon">&#9881;</span>
+                <span><strong>Hardware:</strong> Intel Core i5-1235U (10 Cores, 12 Threads)</span>
+            </div>
+            
+            <!-- Feature 2: Multi-Core Stressor Slider -->
+            <div class="stressor-control">
+                <span class="stressor-label">Active CPU Burners:</span>
+                <input type="range" id="worker-slider" min="1" max="12" value="8" onchange="updateWorkers(this.value)" oninput="updateWorkerLabel(this.value)">
+                <span id="worker-count-badge" class="worker-badge">8 Threads</span>
+            </div>
+
+            <div class="banner-actions">
+                <button class="btn-sm btn-policy" onclick="togglePolicyModal()">📝 Edit Policy (Hot-Reload)</button>
+                <a href="/reports/scx_hush_evaluation.html" target="_blank" class="btn-sm btn-report">📄 View Full Report</a>
+            </div>
         </div>
 
         <!-- Main Workspace -->
         <div class="main-content">
-            <!-- Left Column: Cores, Interactive Smoothness Canvas, Queues -->
+            <!-- Left Column: Cores, Smoothness Canvas, Queues -->
             <div class="control-column">
                 
                 <!-- Scenario Selector Card -->
@@ -81,7 +94,7 @@
                     </div>
                 </div>
 
-                <!-- Live 60 FPS Smoothness & Frame Drop Canvas -->
+                <!-- Live 60 FPS Smoothness Canvas -->
                 <div class="card">
                     <div class="card-header-flex">
                         <span class="card-title">Foreground Video Call / UI Smoothness (60 FPS)</span>
@@ -92,6 +105,36 @@
                         <div class="canvas-legend">
                             <span><span class="legend-dot dot-green"></span> Smooth Render</span>
                             <span><span class="legend-dot dot-red"></span> Stutter / Frame Drop (&gt;25 ms delay)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feature 3: Interactive 4-Tier Inversion Inspector -->
+                <div class="card">
+                    <div class="card-header-flex">
+                        <span class="card-title">4-Tier Priority Inversion Inspector (Section 8)</span>
+                        <span class="live-tag">CLICK TIER TO TEST</span>
+                    </div>
+                    <div class="tiers-grid">
+                        <div class="tier-card" onclick="testInversionTier('tier1')">
+                            <div class="tier-header"><span class="tier-badge">Tier 1</span> Hints (libhush)</div>
+                            <div class="tier-desc">Uprobes on <code>hush_critical_enter()</code></div>
+                            <div class="tier-action">&bull; Exact Precision &bull; User marked</div>
+                        </div>
+                        <div class="tier-card" onclick="testInversionTier('tier2')">
+                            <div class="tier-header"><span class="tier-badge">Tier 2</span> PI Futexes</div>
+                            <div class="tier-desc">Tracepoint on <code>FUTEX_LOCK_PI</code></div>
+                            <div class="tier-action">&bull; Exact Kernel ABI &bull; Zero app changes</div>
+                        </div>
+                        <div class="tier-card" onclick="testInversionTier('tier3')">
+                            <div class="tier-header"><span class="tier-badge">Tier 3</span> glibc Mutexes</div>
+                            <div class="tier-desc">Extracts owner TID from mutex struct</div>
+                            <div class="tier-action">&bull; Heuristic &bull; Self-tested per run</div>
+                        </div>
+                        <div class="tier-card" onclick="testInversionTier('tier4')">
+                            <div class="tier-header"><span class="tier-badge">Tier 4</span> D-State Escape</div>
+                            <div class="tier-desc">Uninterruptible sleep &gt;10 ms</div>
+                            <div class="tier-action">&bull; Opens 20 ms normal window</div>
                         </div>
                     </div>
                 </div>
@@ -137,10 +180,10 @@
 
                 <!-- Interactive Interventions Panel -->
                 <div class="card actions-card">
-                    <div class="card-title">Live Hardware Interventions & CLI Actions</div>
+                    <div class="card-title">Live Actions & Actuator Controls</div>
                     <div class="actions-grid">
                         <button class="btn-action btn-warn" onclick="triggerInversion()">
-                            🔒 Inject Futex Lock Contention
+                            🔒 Inject Futex Contention
                         </button>
                         <button class="btn-action" onclick="triggerStarvation()">
                             ⏳ Trigger Starvation Guard
@@ -168,7 +211,7 @@
                 <!-- Live Real-Time Latency Waveform -->
                 <div class="card chart-card">
                     <div class="card-header-flex">
-                        <span class="card-title">True Wall-Clock Scheduling Latency (Measured ms)</span>
+                        <span class="card-title">True Scheduling Latency (Measured ms)</span>
                         <span id="chart-comparison-tag" class="badge-hush">Strict Isolation Mode</span>
                     </div>
                     <div id="latency-plot" style="height: 270px; width: 100%;"></div>
@@ -196,6 +239,22 @@
                     </ul>
                 </div>
 
+            </div>
+        </div>
+    </div>
+
+    <!-- Feature 1: Live Policy Editor Modal -->
+    <div id="policy-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Live Policy Rule Editor (policy.toml)</h2>
+                <button class="btn-close" onclick="togglePolicyModal()">&times;</button>
+            </div>
+            <p class="modal-subtitle">Modify rules dynamically. SIGHUP hot-reload bumps policy generation without BPF reload (FR-2).</p>
+            <textarea id="policy-editor-text" class="policy-textarea" spellcheck="false"></textarea>
+            <div class="modal-footer">
+                <button class="btn-action" onclick="togglePolicyModal()">Cancel</button>
+                <button class="btn-action btn-warn" onclick="saveAndReloadPolicy()">🚀 Apply Hot-Reload (SIGHUP)</button>
             </div>
         </div>
     </div>

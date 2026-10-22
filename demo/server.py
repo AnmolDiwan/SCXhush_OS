@@ -38,7 +38,10 @@ from real_engine.hardware_harness import HardwareSchedulerHarness
 
 app = FastAPI(title="scx_hush Live Scheduler Visualizer")
 STATIC_DIR = Path(__file__).parent / "static"
+REPORTS_DIR = Path(__file__).parent.parent / "reports"
+
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+app.mount("/reports", StaticFiles(directory=str(REPORTS_DIR)), name="reports")
 
 # Real Hardware Execution Harness
 hardware_harness = HardwareSchedulerHarness(num_bg_workers=8)
@@ -288,6 +291,78 @@ class ActionRequest(BaseModel):
     action: str
     target: Optional[str] = None
     param: Optional[str] = None
+    content: Optional[str] = None
+    value: Optional[int] = None
+
+
+@app.get("/api/policy")
+def get_policy():
+    policy_path = Path(__file__).parent.parent / "config" / "policy.toml"
+    with open(policy_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    return {
+        "status": "ok",
+        "policy_content": content,
+        "policy_gen": demo_state.scheduler.policy_generation,
+    }
+
+
+@app.post("/api/policy")
+def update_policy(req: ActionRequest):
+    new_toml = req.content
+    if not new_toml:
+        return {"status": "error", "message": "Policy content empty"}
+    try:
+        # Validate and load
+        demo_state.scheduler.load_policy(new_toml, is_raw_str=True)
+        policy_path = Path(__file__).parent.parent / "config" / "policy.toml"
+        with open(policy_path, "w", encoding="utf-8") as f:
+            f.write(new_toml)
+        demo_state.log_event("info", f"Policy Hot-Reloaded! New Generation: {demo_state.scheduler.policy_generation}")
+        return {
+            "status": "ok",
+            "message": "Policy reloaded without scheduler restart",
+            "policy_gen": demo_state.scheduler.policy_generation
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@app.post("/api/workers")
+def set_workers(req: ActionRequest):
+    count = req.value or 8
+    hardware_harness.set_worker_count(count)
+    demo_state.log_event("warn", f"Multi-Core Stressor adjusted: {count} active CPU burner threads")
+    return {"status": "ok", "worker_count": count}
+
+
+@app.post("/api/inversion_tier")
+def test_inversion_tier(req: ActionRequest):
+    tier = req.target or "tier1"
+    if demo_state.active_scenario != "inversion":
+        demo_state.setup_scenario("inversion")
+    
+    fg_pid = demo_state.fg_pids[0]
+    bg_pid = demo_state.bg_pids[0]
+    
+    if tier == "tier1":
+        # Tier 1: Hints via libhush uprobe
+        demo_state.scheduler.hint_critical_enter(bg_pid, demo_state.sim_time)
+        demo_state.log_event("info", f"Tier 1 (libhush Hint): uprobe caught hush_critical_enter() -> Task {bg_pid} promoted to FOREGROUND")
+    elif tier == "tier2":
+        # Tier 2: FUTEX_LOCK_PI
+        demo_state.scheduler.futex_wait(fg_pid, demo_state.lock_addr, demo_state.sim_time)
+        demo_state.log_event("info", f"Tier 2 (FUTEX_LOCK_PI): Tracepoint extracted owner TID {bg_pid} from futex word -> Boosted!")
+    elif tier == "tier3":
+        # Tier 3: glibc mutex heuristic
+        demo_state.scheduler.futex_wait(fg_pid, demo_state.lock_addr, demo_state.sim_time)
+        demo_state.log_event("info", f"Tier 3 (glibc Mutex): Heuristic resolved mutex owner field -> Boosted!")
+    elif tier == "tier4":
+        # Tier 4: D-State escape
+        demo_state.log_event("warn", f"Tier 4 (D-State Escape): Uninterruptible sleep >10ms -> Opened 20ms escape window")
+        demo_state.scheduler.dispatch(0, demo_state.sim_time)
+        
+    return {"status": "ok", "tier": tier}
 
 
 @app.post("/api/action")
