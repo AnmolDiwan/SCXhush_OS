@@ -170,13 +170,12 @@ def generate_interactive_report():
     fig5.update_yaxes(title_text="Foreground p99 Latency (ms)", secondary_y=False)
     fig5.update_yaxes(title_text="Longest Background Wait (ms)", secondary_y=True)
 
-    # Combine into single standalone HTML dashboard
+    # Combine into single standalone self-contained HTML dashboard
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>scx_hush - Evaluation Report & Benchmark Results</title>
-    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
     <style>
         body {{
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -265,7 +264,7 @@ def generate_interactive_report():
     </div>
 
     <div class="chart-card">
-        {fig1.to_html(full_html=False, include_plotlyjs=False)}
+        {fig1.to_html(full_html=False, include_plotlyjs=True)}
     </div>
 
     <div class="chart-card">

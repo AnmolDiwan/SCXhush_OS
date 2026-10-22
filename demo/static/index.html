@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>scx_hush — Live Hardware & Scheduler Visualizer</title>
     <link rel="stylesheet" href="/static/style.css">
-    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    <script src="/static/plotly.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -214,7 +214,10 @@
                         <span class="card-title">True Scheduling Latency (Measured ms)</span>
                         <span id="chart-comparison-tag" class="badge-hush">Strict Isolation Mode</span>
                     </div>
-                    <div id="latency-plot" style="height: 270px; width: 100%;"></div>
+                    <div class="chart-canvas-container" style="position: relative; height: 250px; width: 100%; background: #060911; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden;">
+                        <canvas id="latency-canvas" width="650" height="250" style="width: 100%; height: 100%; display: block;"></canvas>
+                        <div id="chart-tooltip" style="position: absolute; top: 10px; right: 14px; font-size: 12px; font-family: monospace; color: #10b981; font-weight: 700;">1.42 ms</div>
+                    </div>
                 </div>
 
                 <!-- Kernel Event Stream & Verification Audit -->

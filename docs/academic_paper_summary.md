@@ -65,3 +65,4 @@ In this work, we present **`scx_hush`**, an unfair-by-design extensible CPU sche
 
 ## Conclusion
 `scx_hush` delivers the optimal latency-isolation envelope: foreground work behaves as if running alone on an idle machine, while background work continues to make bounded forward progress without kernel compilation or application code modifications.
+

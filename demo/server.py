@@ -275,6 +275,11 @@ def get_index():
     return FileResponse(STATIC_DIR / "index.html")
 
 
+@app.get("/api/snapshot")
+def get_snapshot():
+    return demo_state.get_snapshot()
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
