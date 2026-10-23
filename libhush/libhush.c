@@ -1,44 +1,31 @@
-#define LIBHUSH_BUILD
+/*
+ * The scheduler does not call into this library: hushd attaches uprobes to
+ * hush_critical_enter/exit by symbol name and the BPF side tracks nesting in
+ * task-local storage. These bodies only need to exist as distinct, exported,
+ * never-inlined functions, so a uprobe has an instruction to trap on.
+ */
 #include "libhush.h"
 
-#if defined(_MSC_VER)
-  #define THREAD_LOCAL __declspec(thread)
-#else
-  #define THREAD_LOCAL _Thread_local
-#endif
+static _Thread_local int depth;
 
-static THREAD_LOCAL int g_hush_nesting_depth = 0;
+#define HUSH_PROBE_POINT __attribute__((noinline, used))
+/* Keep the compiler from folding or eliding the bodies. */
+#define HUSH_BARRIER() __asm__ __volatile__("" ::: "memory")
 
-/*
- * hush_critical_enter
- * Keep function non-inlined and preserve symbol so eBPF uprobe can attach.
- */
-#if defined(__GNUC__) || defined(__clang__)
-__attribute__((noinline))
-#endif
-void hush_critical_enter(void) {
-    g_hush_nesting_depth++;
-    /* Memory barrier prevents compiler from optimizing this out */
-#if defined(__GNUC__) || defined(__clang__)
-    __asm__ __volatile__("" ::: "memory");
-#endif
+HUSH_PROBE_POINT void hush_critical_enter(void)
+{
+	depth++;
+	HUSH_BARRIER();
 }
 
-/*
- * hush_critical_exit
- */
-#if defined(__GNUC__) || defined(__clang__)
-__attribute__((noinline))
-#endif
-void hush_critical_exit(void) {
-    if (g_hush_nesting_depth > 0) {
-        g_hush_nesting_depth--;
-    }
-#if defined(__GNUC__) || defined(__clang__)
-    __asm__ __volatile__("" ::: "memory");
-#endif
+HUSH_PROBE_POINT void hush_critical_exit(void)
+{
+	if (depth > 0)
+		depth--;
+	HUSH_BARRIER();
 }
 
-int hush_get_nesting_depth(void) {
-    return g_hush_nesting_depth;
+int hush_critical_depth(void)
+{
+	return depth;
 }

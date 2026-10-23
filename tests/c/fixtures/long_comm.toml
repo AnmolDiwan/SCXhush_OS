@@ -1,0 +1,3 @@
+[[rule]]
+match = { comm = "a_name_that_is_too_long" }
+class = "fg"

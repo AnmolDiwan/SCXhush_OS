@@ -1,4 +1,7 @@
 # scx_hush: Unfair-by-Design CPU Scheduler
+
+> **Note (Oct 23, 2026):** the benchmark figures in this document come from the synthetic model in `bench/workloads.py` (hand-picked distributions per baseline), not from runs of the scheduler. They are not evidence of scx_hush's performance. Measured results will come from `bench/real/run.py` on a sched_ext kernel; see `docs/IMPLEMENTATION_PLAN.md`.
+
 ## Complete Technical Architecture, Algorithmic Design, and Empirical Verification Report
 
 **Author:** Mohak  

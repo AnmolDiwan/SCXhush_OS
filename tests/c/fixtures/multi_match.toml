@@ -1,0 +1,3 @@
+[[rule]]
+match = { comm = "x", cgroup = "/a" }
+class = "fg"

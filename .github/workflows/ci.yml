@@ -1,0 +1,55 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang llvm libelf-dev zlib1g-dev make gcc pkg-config
+
+      - name: Cache pinned dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            third_party/scx
+            third_party/bpftool
+          key: deps-${{ runner.os }}-${{ hashFiles('scripts/fetch-deps.sh') }}
+
+      - name: Fetch scx headers, build bpftool + libbpf
+        run: make deps
+
+      # NFR-7/NFR-8: one CO-RE object per arch, both from the vendored
+      # sched_ext BTF (the runner kernel has no sched_ext).
+      - name: Build BPF scheduler (x86-64)
+        run: make bpf ARCH=x86
+      - name: Build BPF scheduler (arm64)
+        run: make bpf ARCH=arm64 BUILD=$PWD/build/arm64
+
+      - name: Build hushd, libhush, tools
+        run: make all
+
+      - name: C unit tests
+        run: make test-c
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Python tests
+        run: |
+          pip install -r requirements-dev.txt
+          make test-py
+
+      - name: Policy dry run and selftest
+        run: |
+          ./build/hushd --dry-run --policy config/policy.toml
+          ./build/hushd --selftest --policy config/policy.toml || true
+          python3 bench/real/run.py -e all --reps 1 --dry-run --out /tmp/plan

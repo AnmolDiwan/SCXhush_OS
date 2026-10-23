@@ -1,161 +1,205 @@
 #!/usr/bin/env python3
 """
-hushctl - Command-line interface for scx_hush
-Implements PRD Section 9.3 (FR-5, FR-18, FR-19).
+hushctl - command-line client for the scx_hush daemon (PRD §9.3).
+
+Talks newline-delimited JSON to hushd over a Unix socket (/run/hush.sock,
+override with --socket or $HUSH_SOCK). The simulator daemon (daemon/hushd.py)
+speaks the same protocol; on platforms without AF_UNIX it listens on TCP,
+selected with --tcp PORT or $HUSH_TCP.
+
+    hushctl status
+    hushctl class <pid>
+    hushctl promote <pid|cgroup>     hushctl demote <pid|cgroup>
+    hushctl reset <pid|cgroup>       hushctl reload
+    hushctl selftest                 hushctl trace start|stop [file]
 """
 
-import sys
-import json
-import socket
 import argparse
+import json
+import os
+import socket
+import sys
 
-DEFAULT_PORT = 19890
+DEFAULT_SOCK = "/run/hush.sock"
+DEFAULT_TCP_PORT = 19890  # simulator fallback
 
 
-def send_command(cmd: str, args: dict, port: int = DEFAULT_PORT) -> dict:
+class HushctlError(Exception):
+    pass
+
+
+def _connect(sock_path=None, port=None, timeout=5.0):
+    if port is None and os.environ.get("HUSH_TCP"):
+        port = int(os.environ["HUSH_TCP"])
+    if port is None and not hasattr(socket, "AF_UNIX"):
+        port = DEFAULT_TCP_PORT
+    if port is not None:
+        s = socket.create_connection(("127.0.0.1", port), timeout=timeout)
+        return s, f"127.0.0.1:{port}"
+    path = sock_path or os.environ.get("HUSH_SOCK") or DEFAULT_SOCK
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.settimeout(timeout)
+    s.connect(path)
+    return s, path
+
+
+def send_command(cmd, args=None, port=None, sock_path=None, timeout=5.0):
+    """Send one request and return the decoded reply."""
+    req = json.dumps({"cmd": cmd, "args": args or {}}) + "\n"
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(3.0)
-        s.connect(("127.0.0.1", port))
-        req = json.dumps({"cmd": cmd, "args": args})
-        s.sendall(req.encode("utf-8"))
-        res = s.recv(8192).decode("utf-8").strip()
-        s.close()
-        return json.loads(res)
-    except ConnectionRefusedError:
-        print("[hushctl] Error: Could not connect to hushd daemon. Is hushd running?", file=sys.stderr)
-        sys.exit(1)
-    except Exception as e:
-        print(f"[hushctl] Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        s, where = _connect(sock_path, port, timeout)
+    except (FileNotFoundError, ConnectionRefusedError) as e:
+        raise HushctlError(
+            f"cannot reach hushd ({e.strerror or e}); is it running? "
+            "Start it with: sudo hushd --policy policy.toml"
+        ) from e
+    except PermissionError as e:
+        raise HushctlError(f"permission denied on the control socket: {e}") from e
+    with s:
+        s.sendall(req.encode())
+        buf = b""
+        while not buf.endswith(b"\n"):
+            chunk = s.recv(65536)
+            if not chunk:
+                break
+            buf += chunk
+    if not buf:
+        raise HushctlError(f"hushd at {where} closed the connection without replying")
+    return json.loads(buf.decode())
 
 
-def cmd_status(args):
-    resp = send_command("status", {})
-    if resp.get("status") == "ok":
-        print("==================================================")
-        print("          scx_hush Scheduler Status               ")
-        print("==================================================")
-        print(f"Policy Generation: {resp.get('policy_gen')}")
-        print(f"Starvation Guard Firings: {resp.get('guard_firings')}")
-        print(f"Inversion Boosts:        {resp.get('boost_count')}")
-        print(f"Hint Abuse Rejections:   {resp.get('hint_abuse_count')}")
-        print("--------------------------------------------------")
-        print("Per-Class Metrics:")
-        runtimes = resp.get("runtime_sec", {})
-        waits = resp.get("wait_sec", {})
-        preempts = resp.get("preemptions", {})
-        for cls in ("FOREGROUND", "NORMAL", "BACKGROUND"):
-            r = runtimes.get(cls, 0.0)
-            w = waits.get(cls, 0.0)
-            p = preempts.get(cls, 0)
-            print(f"  [{cls:<10}] Runtime: {r:8.3f}s | Wait: {w:8.3f}s | Preemptions: {p:5d}")
-        print("==================================================")
+# ----------------------------------------------------------------- output
+
+
+def _ms(ns):
+    return ns / 1e6
+
+
+def print_status(r):
+    classes = r.get("classes", {})
+    c = r.get("counters", {})
+    feats = r.get("features", {})
+    cfg = r.get("config", {})
+    print(f"scx_hush {r.get('version', '')} [{r.get('backend', '?')}]  "
+          f"sched_ext: {r.get('sched_ext_state', '?')}"
+          + (f" ({r['ops']})" if r.get("ops") else ""))
+    print(f"policy {r.get('policy', '')}  generation {r.get('policy_gen')}  "
+          f"uptime {r.get('uptime_s', 0)}s  cgroups classified {r.get('cgroups_classified', 0)}  "
+          f"overrides {r.get('pid_overrides', 0)} pid / {r.get('cgroup_overrides', 0)} cgroup")
+    if cfg:
+        print(f"slices fg/normal/bg {cfg.get('fg_slice_ms')}/{cfg.get('normal_slice_ms')}/"
+              f"{cfg.get('bg_slice_ms')} ms  guard {cfg.get('guard_ms')} ms  "
+              f"watchdog {cfg.get('watchdog_ms')} ms  boost {cfg.get('boost_ms')} ms "
+              f"(cap {cfg.get('boost_cap_pct')}%)")
+    print()
+    print(f"  {'class':<11} {'runtime s':>10} {'runs':>10} {'mean wait ms':>13} {'max wait ms':>12}")
+    for name in ("FOREGROUND", "NORMAL", "BACKGROUND"):
+        k = classes.get(name, {})
+        runs = k.get("runs", 0)
+        mean = _ms(k.get("wait_ns", 0) / runs) if runs else 0.0
+        print(f"  {name:<11} {k.get('runtime_ns', 0) / 1e9:>10.2f} {runs:>10} "
+              f"{mean:>13.3f} {_ms(k.get('wait_max_ns', 0)):>12.3f}")
+    print()
+    boosts = sum(c.get(f"boosts_{s}", 0) for s in ("hint", "pi", "glibc", "fallback"))
+    print(f"  preemption kicks {c.get('preempt_kicks', 0)}   tick yields {c.get('tick_yields', 0)}")
+    print(f"  guard firings    {c.get('guard_firings', 0)} bg / {c.get('guard_normal', 0)} normal"
+          f"   hard guard {c.get('hard_guard_firings', 0)}")
+    print(f"  boosts           {boosts} (hint {c.get('boosts_hint', 0)}, pi {c.get('boosts_pi', 0)}, "
+          f"glibc {c.get('boosts_glibc', 0)}, fallback {c.get('boosts_fallback', 0)})"
+          f"   renewals {c.get('boost_renewals', 0)}   capped {c.get('boost_capped', 0)}")
+    print(f"  hint abuse       {c.get('hint_abuse', 0)}   d-state escapes {c.get('dstate_escapes', 0)}"
+          f"   reclassifications {c.get('reclassify', 0)}")
+    if feats:
+        on = [k for k, v in feats.items() if v]
+        off = [k for k, v in feats.items() if not v]
+        print(f"  features on: {', '.join(on) or '-'}   off: {', '.join(off) or '-'}")
+
+
+def print_class(r):
+    rows = [
+        ("pid", r.get("pid")), ("tgid", r.get("tgid")), ("comm", r.get("comm")),
+        ("cgroup", r.get("cgroup")), ("uid", r.get("uid")),
+        ("policy class", f"{r.get('policy_class')} ({r.get('policy_match')})"),
+        ("matched", r.get("rule")),
+        ("base class", r.get("base_class")),
+        ("effective class", r.get("effective_class")),
+        ("reason", r.get("reason")),
+    ]
+    if r.get("boost_source"):
+        rows.append(("boost", f"{r['boost_source']}, {r.get('boost_remaining_us', 0)} us left"))
+    if r.get("crit_depth"):
+        rows.append(("hint depth", r["crit_depth"]))
+    for k, v in rows:
+        if v is not None:
+            print(f"{k + ':':<17}{v}")
+
+
+def print_selftest(r):
+    for c in r.get("checks", []):
+        tag = "PASS" if c["ok"] else ("FAIL" if c.get("fatal") else "WARN")
+        print(f"  [{tag}] {c['name']:<20} {c.get('detail', '')}")
+    print(f"tier 3 (glibc mutex) detection: {'enabled' if r.get('tier3_enabled') else 'disabled'}")
+    print(r.get("verdict", ""))
+
+
+# ----------------------------------------------------------------- main
+
+
+def build_parser():
+    p = argparse.ArgumentParser(prog="hushctl", description="Control the scx_hush scheduler.")
+    p.add_argument("--socket", help=f"control socket (default $HUSH_SOCK or {DEFAULT_SOCK})")
+    p.add_argument("--tcp", type=int, metavar="PORT", help="connect to a simulator daemon over TCP")
+    p.add_argument("--json", action="store_true", help="print the raw JSON reply")
+    sub = p.add_subparsers(dest="command", required=True)
+
+    sub.add_parser("status", help="per-class runtime, waits, preemptions, guard firings, boosts")
+    s = sub.add_parser("class", help="a task's class and why")
+    s.add_argument("pid", type=int)
+    for name, hlp in (("promote", "move to FOREGROUND until demoted, reset or exit"),
+                      ("demote", "move to BACKGROUND"),
+                      ("reset", "drop a promote/demote override")):
+        s = sub.add_parser(name, help=hlp)
+        s.add_argument("target", help="PID or cgroup path such as /user.slice/build.scope")
+    sub.add_parser("reload", help="re-read the policy file and bump the policy generation")
+    sub.add_parser("selftest", help="check kernel support and the glibc layout tier 3 needs")
+    s = sub.add_parser("trace", help="record per-task wakeup latency to CSV")
+    s.add_argument("action", choices=["start", "stop"])
+    s.add_argument("file", nargs="?", default="hush-trace.csv")
+    return p
+
+
+def main(argv=None):
+    a = build_parser().parse_args(argv)
+    args = {}
+    if a.command == "class":
+        args = {"pid": a.pid}
+    elif a.command in ("promote", "demote", "reset"):
+        args = {"target": a.target}
+    elif a.command == "trace":
+        # hushd runs elsewhere; give it an absolute path.
+        args = {"action": a.action, "file": os.path.abspath(a.file)}
+
+    try:
+        r = send_command(a.command, args, port=a.tcp, sock_path=a.socket)
+    except HushctlError as e:
+        print(f"hushctl: {e}", file=sys.stderr)
+        return 1
+
+    if a.json:
+        print(json.dumps(r, indent=2))
+    elif r.get("status") != "ok":
+        print(f"hushctl: {r.get('message', 'error')}", file=sys.stderr)
+        return 1
+    elif a.command == "status":
+        print_status(r)
+    elif a.command == "class":
+        print_class(r)
+    elif a.command == "selftest":
+        print_selftest(r)
     else:
-        print(f"Error: {resp.get('message')}")
-
-
-def cmd_class(args):
-    resp = send_command("class", {"pid": args.pid})
-    if resp.get("status") == "ok":
-        print(f"PID:             {resp['pid']}")
-        print(f"Comm:            {resp['comm']}")
-        print(f"Cgroup:          {resp['cgroup']}")
-        print(f"Base Class:      {resp['base_class']}")
-        print(f"Effective Class: {resp['effective_class']}")
-        print(f"Reason:          {resp['reason']}")
-        if resp.get("crit_depth", 0) > 0:
-            print(f"Critical Depth:  {resp['crit_depth']} (libhush hint active)")
-    else:
-        print(f"Error: {resp.get('message')}")
-
-
-def cmd_promote(args):
-    resp = send_command("promote", {"target": args.target})
-    if resp.get("status") == "ok":
-        print(f"[hushctl] {resp.get('message')}")
-    else:
-        print(f"Error: {resp.get('message')}")
-
-
-def cmd_demote(args):
-    resp = send_command("demote", {"target": args.target})
-    if resp.get("status") == "ok":
-        print(f"[hushctl] {resp.get('message')}")
-    else:
-        print(f"Error: {resp.get('message')}")
-
-
-def cmd_reload(args):
-    resp = send_command("reload", {})
-    if resp.get("status") == "ok":
-        print(f"[hushctl] Policy reloaded successfully (Generation: {resp.get('policy_gen')})")
-    else:
-        print(f"Error: {resp.get('message')}")
-
-
-def cmd_selftest(args):
-    resp = send_command("selftest", {})
-    if resp.get("status") == "ok":
-        print("Running scx_hush compatibility selftest...")
-        tests = resp.get("tests", {})
-        for test_name, passed in tests.items():
-            status_str = "PASS" if passed else "FAIL"
-            print(f"  [{status_str}] {test_name}")
-        print(f"Result: {resp.get('verdict')}")
-    else:
-        print(f"Error: {resp.get('message')}")
-
-
-def cmd_trace(args):
-    resp = send_command("trace", {"action": args.action, "file": args.file})
-    if resp.get("status") == "ok":
-        print(f"[hushctl] {resp.get('message')}")
-    else:
-        print(f"Error: {resp.get('message')}")
-
-
-def main():
-    parser = argparse.ArgumentParser(description="hushctl - scx_hush Control Plane CLI")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    # status
-    sub_status = subparsers.add_parser("status", help="Show live counters and per-class stats")
-    sub_status.set_defaults(func=cmd_status)
-
-    # class <pid>
-    sub_class = subparsers.add_parser("class", help="Show a task's class and why")
-    sub_class.add_argument("pid", type=int, help="Process ID")
-    sub_class.set_defaults(func=cmd_class)
-
-    # promote <pid or cgroup>
-    sub_promote = subparsers.add_parser("promote", help="Move task or cgroup to FOREGROUND")
-    sub_promote.add_argument("target", help="PID or cgroup path")
-    sub_promote.set_defaults(func=cmd_promote)
-
-    # demote <pid or cgroup>
-    sub_demote = subparsers.add_parser("demote", help="Move task or cgroup to BACKGROUND")
-    sub_demote.add_argument("target", help="PID or cgroup path")
-    sub_demote.set_defaults(func=cmd_demote)
-
-    # reload
-    sub_reload = subparsers.add_parser("reload", help="Re-read policy file without reload")
-    sub_reload.set_defaults(func=cmd_reload)
-
-    # selftest
-    sub_selftest = subparsers.add_parser("selftest", help="Validate glibc layout and kernel support")
-    sub_selftest.set_defaults(func=cmd_selftest)
-
-    # trace <start|stop> <file>
-    sub_trace = subparsers.add_parser("trace", help="Record per-task wakeup latency to CSV")
-    sub_trace.add_argument("action", choices=["start", "stop"], help="Start or stop tracing")
-    sub_trace.add_argument("file", nargs="?", default="trace.csv", help="Output CSV path")
-    sub_trace.set_defaults(func=cmd_trace)
-
-    args = parser.parse_args()
-    args.func(args)
+        print(r.get("message", "ok"))
+    return 0 if r.get("status") == "ok" else 1
 
 
 if __name__ == "__main__":
-    main()
-
+    sys.exit(main())

@@ -2,6 +2,12 @@
 Workloads generator for scx_hush benchmark suite.
 Implements Laptop (schbench + build), Robot (100Hz control loop + zstd),
 Database (pgbench + vacuum), and Inversion microbenchmarks.
+
+SYNTHETIC MODEL OUTPUT - NOT MEASUREMENTS. The per-baseline distributions
+come from bench/workloads.py, where each configuration's latency is drawn
+from a hand-picked log-normal. Use these numbers to exercise the report
+pipeline only; never cite them as results. Real measurements come from
+bench/real/run.py on a sched_ext kernel.
 """
 
 import math

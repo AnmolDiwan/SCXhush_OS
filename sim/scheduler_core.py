@@ -11,7 +11,7 @@ import collections
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any, Tuple
 import tomllib
-import fnmatch
+import re
 
 # Task Class constants (FR-1)
 CLASS_UNSPEC = 0
@@ -165,31 +165,41 @@ class ScxHushScheduler:
         self.rules = data.get("rule", [])
         self.policy_generation += 1
 
-    def classify_task(self, comm: str, cgroup: str) -> int:
-        """FR-2, FR-3: Resolves class using first-match rule order."""
-        for rule in self.rules:
-            match = rule.get("match", {})
-            target_class_str = rule.get("class", "").lower()
-            target_class = (
-                CLASS_FOREGROUND if target_class_str == "foreground"
-                else CLASS_BACKGROUND if target_class_str == "background"
-                else CLASS_NORMAL
-            )
+    @staticmethod
+    def _rule_class(rule: Dict[str, Any]) -> int:
+        name = str(rule.get("class", "")).lower()
+        if name in ("foreground", "fg"):
+            return CLASS_FOREGROUND
+        if name in ("background", "bg"):
+            return CLASS_BACKGROUND
+        return CLASS_NORMAL
 
-            # Check cgroup match (supports wildcards)
-            if "cgroup" in match:
-                pattern = match["cgroup"]
-                if fnmatch.fnmatch(cgroup, pattern):
-                    return target_class
+    @staticmethod
+    def _cgroup_matches(pattern: str, cgroup: str) -> bool:
+        """Same semantics as hushd: fnmatch(FNM_PATHNAME) on the cgroup or any ancestor."""
+        rx = re.compile("".join(
+            "[^/]*" if ch == "*" else "[^/]" if ch == "?" else re.escape(ch) for ch in pattern) + r"\Z")
+        path = cgroup
+        while path:
+            if rx.match(path):
+                return True
+            path = path.rsplit("/", 1)[0]
+        return pattern == "/"
 
-            # Check comm match
-            if "comm" in match:
-                comms = match["comm"]
-                if isinstance(comms, str):
-                    comms = [comms]
-                if comm in comms:
-                    return target_class
-
+    def classify_task(self, comm: str, cgroup: str, uid: Optional[int] = None) -> int:
+        """FR-2, FR-3: first matching cgroup rule, else comm rule, else uid rule."""
+        for key in ("cgroup", "comm", "uid"):
+            for rule in self.rules:
+                match = rule.get("match", {})
+                if key not in match:
+                    continue
+                vals = match[key] if isinstance(match[key], list) else [match[key]]
+                if key == "cgroup" and any(self._cgroup_matches(v, cgroup) for v in vals):
+                    return self._rule_class(rule)
+                if key == "comm" and comm in vals:
+                    return self._rule_class(rule)
+                if key == "uid" and uid is not None and uid in vals:
+                    return self._rule_class(rule)
         return CLASS_NORMAL
 
     def register_task(self, pid: int, tid: int, comm: str, cgroup: str) -> TaskCtx:

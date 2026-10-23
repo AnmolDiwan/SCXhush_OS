@@ -1,21 +1,37 @@
-# scx_hush Policy Configuration
-# Sections match scx_hush PRD & Architecture Section 9.2
+# scx_hush policy (PRD §9.2). Re-read on `hushctl reload` or SIGHUP.
+#
+# Rules are matched in order and the first match wins. Each rule matches
+# exactly one of:
+#   cgroup = "/path" or ["/a", "/b/*"]   cgroup v2 path, glob, also matches
+#                                          every cgroup below it
+#   comm   = "name" or ["a", "b"]        executable/thread name (<= 15 chars)
+#   uid    = 1000 or [1000, 1001]
+# A cgroup match takes precedence over comm, and comm over uid (FR-3).
+# Unmatched tasks inherit their parent's class at fork (FR-4), else NORMAL.
+# Kernel threads are always NORMAL.
 
 [scheduler]
-fg_slice_ms = 5
+fg_slice_ms     = 5
 normal_slice_ms = 10
-bg_slice_ms = 20
-guard_ms = 2000 # must be <= watchdog_timeout / 4
-boost_ms = 50
-boost_cap_pct = 10
+bg_slice_ms     = 20
+guard_ms        = 2000   # must be <= watchdog_ms / 4 (FR-12)
+boost_ms        = 50
+boost_cap_pct   = 10
+# watchdog_ms   = 30000  # sched_ext watchdog; fixed at load
+# inversion     = true   # tiers 2/3 + same-process fallback
+# fallback      = true   # boost recent BG threads of the waiter's process
+# dstate        = true   # tier 4 D-state escape window
+# hints         = true   # tier 1 libhush uprobes
+# libhush_path  = "/usr/local/lib/libhush.so"
 
-# Rule matching order: first match wins (FR-2, FR-3)
+# Interactive login sessions are foreground.
 [[rule]]
 match = { cgroup = "/user.slice/user-1000.slice/session-*.scope" }
 class = "foreground"
 
+# Compilers, linkers and backup tools are background wherever they run.
 [[rule]]
-match = { comm = ["cc1", "cc1plus", "rustc", "ld", "restic"] }
+match = { comm = ["cc1", "cc1plus", "rustc", "ld", "ld.lld", "restic"] }
 class = "background"
 
 [[rule]]
@@ -23,10 +39,5 @@ match = { cgroup = "/system.slice/backup.service" }
 class = "background"
 
 [[rule]]
-match = { comm = ["schbench", "game", "compositor", "browser", "control_loop"] }
-class = "foreground"
-
-[[rule]]
-match = { comm = ["zstd", "gzip", "tar", "vacuum", "rsync"] }
+match = { comm = ["zstd", "xz", "gzip", "rsync"] }
 class = "background"
-

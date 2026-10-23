@@ -1,0 +1,3 @@
+[scheduler]
+guard_ms = 8000
+watchdog_ms = 30000

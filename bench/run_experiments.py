@@ -3,6 +3,12 @@
 Master Experiment Runner for scx_hush
 Executes Experiments E1 to E9 as defined in PRD Section 12.3.
 Saves raw CSV traces and outputs structured benchmark results.
+
+SYNTHETIC MODEL OUTPUT - NOT MEASUREMENTS. The per-baseline distributions
+come from bench/workloads.py, where each configuration's latency is drawn
+from a hand-picked log-normal. Use these numbers to exercise the report
+pipeline only; never cite them as results. Real measurements come from
+bench/real/run.py on a sched_ext kernel.
 """
 
 import os

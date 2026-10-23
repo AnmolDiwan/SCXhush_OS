@@ -1,0 +1,31 @@
+[scheduler]
+fg_slice_ms     = 5
+normal_slice_ms = 10
+bg_slice_ms     = 20
+guard_ms        = 2000
+boost_ms        = 50
+boost_cap_pct   = 10
+
+[[rule]]
+match = { cgroup = "/user.slice/user-1000.slice/session-*.scope" }
+class = "foreground"
+
+[[rule]]
+match = { comm = ["cc1", "cc1plus", "rustc", "ld", "restic"] }
+class = "background"
+
+[[rule]]
+match = { cgroup = "/system.slice/backup.service" }
+class = "background"
+
+[[rule]]
+match = { uid = [1001, 1002] }
+class = "bg"
+
+[[rule]]
+match = { cgroup = "/user.slice" }
+class = "normal"
+
+[[rule]]
+match = { comm = "rustc" }
+class = "foreground"

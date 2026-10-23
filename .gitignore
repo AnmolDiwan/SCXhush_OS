@@ -1,14 +1,22 @@
 __pycache__/
 *.pyc
 *.pyo
+.pytest_cache/
 *.o
-*.dll
 *.so
+*.so.*
+*.dll
 *.egg-info/
 dist/
-build/
 .env
 
 # Vendored large JS libraries (install via: pip install plotly && copy)
 demo/static/plotly.min.js
 
+# build outputs and fetched dependencies (make deps)
+build/
+third_party/scx/
+third_party/bpftool/
+
+# real benchmark output (bench/real/run.py)
+bench/real/results/

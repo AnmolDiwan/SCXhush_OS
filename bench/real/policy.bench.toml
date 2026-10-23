@@ -1,0 +1,30 @@
+# Policy used by bench/real/run.py for configurations B5 and B6.
+# The harness launches foreground and background workloads in these cgroups,
+# so classification does not depend on each tool's process names. The
+# inversion micro-benchmark runs in /hush-bench/mixed and is classified by
+# thread name instead (cgroup rules take precedence over comm rules).
+
+[scheduler]
+fg_slice_ms     = 5
+normal_slice_ms = 10
+bg_slice_ms     = 20
+guard_ms        = 2000
+boost_ms        = 50
+boost_cap_pct   = 10
+watchdog_ms     = 30000
+
+[[rule]]
+match = { cgroup = "/hush-bench/fg" }
+class = "foreground"
+
+[[rule]]
+match = { cgroup = "/hush-bench/bg" }
+class = "background"
+
+[[rule]]
+match = { comm = ["inv_fg", "inv_load", "ctl_loop"] }
+class = "foreground"
+
+[[rule]]
+match = { comm = ["inv_bg"] }
+class = "background"
