@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>scx_hush — Live Hardware & Scheduler Visualizer</title>
     <link rel="stylesheet" href="/static/style.css">
-    <script src="/static/plotly.min.js"></script>
+    <script src="/static/plotly.min.js" onerror="
+        var s=document.createElement('script');
+        s.src='https://cdn.plot.ly/plotly-2.35.2.min.js';
+        document.head.appendChild(s);
+    "></script>
 </head>
 <body>
     <div class="app-container">

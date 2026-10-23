@@ -8,3 +8,7 @@ __pycache__/
 dist/
 build/
 .env
+
+# Vendored large JS libraries (install via: pip install plotly && copy)
+demo/static/plotly.min.js
+

@@ -1,0 +1,4 @@
+# Linguist overrides — tell GitHub the real language breakdown
+# Vendored JS should not count toward language stats
+demo/static/plotly.min.js linguist-vendored
+reports/*.html linguist-generated

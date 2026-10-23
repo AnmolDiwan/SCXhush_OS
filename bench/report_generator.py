@@ -264,7 +264,7 @@ def generate_interactive_report():
     </div>
 
     <div class="chart-card">
-        {fig1.to_html(full_html=False, include_plotlyjs=True)}
+        {fig1.to_html(full_html=False, include_plotlyjs='cdn')}
     </div>
 
     <div class="chart-card">
