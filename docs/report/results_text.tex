@@ -1,0 +1,5 @@
+\paragraph{Observations.}
+With CPU-bound background load at the same priority (B1), the p99 wakeup latency of schbench rose to 48.6$\times$ the foreground-alone value (B0). Background at nice~19 (B2) gave 48.8$\times$ and \code{SCHED\_IDLE} (B3) 52.5$\times$ (\cref{tab:e1}).
+E2 is inconclusive on this machine. The 100\,Hz loop running \emph{alone} (B0) already showed a p99 period deviation of 9.4\,ms and a maximum of 66\,ms (\cref{tab:e2}), i.e.\ the virtual machine's timer and vCPU scheduling dominate the jitter, so differences between B1--B3 cannot be attributed to the background priority mechanism. E2 must be repeated on bare metal.
+Background progress was similar across B1--B3 (79--90 CPU-seconds per minute in E1 on 4 vCPUs). The question scx\_hush targets is whether strict precedence can bring foreground latency back to B0 at a similar background cost.
+These measurements quantify the interference that motivates scx\_hush on this machine; they are not an evaluation of scx\_hush, and the VM's noise (\cref{sec:discussion}) means only large effects should be read from them.
