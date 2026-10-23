@@ -20,3 +20,12 @@ third_party/bpftool/
 
 # real benchmark output (bench/real/run.py)
 bench/real/results/
+
+# LaTeX build files (docs/report)
+docs/report/*.aux
+docs/report/*.bbl
+docs/report/*.blg
+docs/report/*.log
+docs/report/*.out
+docs/report/*.fls
+docs/report/*.fdb_latexmk

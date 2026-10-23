@@ -1,0 +1,18 @@
+\begin{table}[h]
+\centering\small
+\caption{E1: schbench wakeup latency ($\mu$s) and background progress. Median over repetitions, 95\% bootstrap CI in brackets.}
+\label{tab:e1}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Config & p99 wakeup & p99.9 wakeup & BG CPU-s/min \\
+\midrule
+B0 FG alone & 126 {\scriptsize[120, 148]} & 2676 {\scriptsize[1610, 2732]} & 0 {\scriptsize[0, 0]} \\
+B1 EEVDF & 6120 {\scriptsize[6008, 6136]} & 8272 {\scriptsize[8104, 9520]} & 79 {\scriptsize[79, 85]} \\
+B2 nice 19 & 6152 {\scriptsize[6072, 6168]} & 9040 {\scriptsize[8976, 9264]} & 84 {\scriptsize[82, 84]} \\
+B3 SCHED\_IDLE & 6616 {\scriptsize[6408, 8272]} & 10000 {\scriptsize[9328, 10640]} & 90 {\scriptsize[81, 95]} \\
+B4 cpu.idle & n/a & n/a & n/a \\
+B5 scx\_hush (no inv.) & \pending & \pending & \pending \\
+B6 scx\_hush & \pending & \pending & \pending \\
+\bottomrule
+\end{tabular}
+\end{table}

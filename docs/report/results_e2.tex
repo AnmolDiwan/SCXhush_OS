@@ -1,0 +1,18 @@
+\begin{table}[h]
+\centering\small
+\caption{E2: 100\,Hz control loop, period deviation and wake-up lateness (ms). Median over repetitions, 95\% bootstrap CI in brackets.}
+\label{tab:e2}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Config & p99 $|$dev$|$ & max $|$dev$|$ & p99 late & BG CPU-s/min \\
+\midrule
+B0 FG alone & 9.38 {\scriptsize[8.73, 9.47]} & 66.4 {\scriptsize[55.8, 67.7]} & 10.09 {\scriptsize[3.88, 14.34]} & 0 {\scriptsize[0, 0]} \\
+B1 EEVDF & 9.48 {\scriptsize[7.31, 9.48]} & 82.1 {\scriptsize[52.9, 96.8]} & 25.40 {\scriptsize[4.46, 32.19]} & 227 {\scriptsize[223, 228]} \\
+B2 nice 19 & 9.48 {\scriptsize[9.47, 9.48]} & 81.0 {\scriptsize[70.4, 99.1]} & 17.15 {\scriptsize[9.26, 24.50]} & 224 {\scriptsize[220, 228]} \\
+B3 SCHED\_IDLE & 2.48 {\scriptsize[2.34, 3.98]} & 10.2 {\scriptsize[8.3, 14.9]} & 2.21 {\scriptsize[2.08, 2.38]} & 221 {\scriptsize[221, 223]} \\
+B4 cpu.idle & n/a & n/a & n/a & n/a \\
+B5 scx\_hush (no inv.) & \pending & \pending & \pending & \pending \\
+B6 scx\_hush & \pending & \pending & \pending & \pending \\
+\bottomrule
+\end{tabular}
+\end{table}
