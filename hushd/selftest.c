@@ -189,8 +189,12 @@ int selftest_run(struct hushd *d, struct selftest_check *out, int max)
 	}
 
 	if ((c = add(out, &n, max, "cgroup_v2", false))) {
-		const char *root = d && d->cg_root[0] ? d->cg_root : "/sys/fs/cgroup";
-		char path[PATH_MAX];
+		char root[PATH_MAX] = "/sys/fs/cgroup", path[PATH_MAX + 32];
+
+		if (d && d->cg_root[0])
+			sfmt(root, sizeof(root), "%s", d->cg_root);
+		else
+			cg_find_root(root, sizeof(root));
 
 		sfmt(path, sizeof(path), "%s/cgroup.controllers", root);
 		c->ok = !stat(path, &st);

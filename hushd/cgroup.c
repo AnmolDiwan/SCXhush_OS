@@ -47,7 +47,7 @@ static uint64_t cgroup_id(const char *path)
 	return stat(path, &st) ? 0 : (uint64_t)st.st_ino;
 }
 
-static int find_root(char *out, size_t len)
+int cg_find_root(char *out, size_t len)
 {
 	struct mntent *m;
 	FILE *f = setmntent("/proc/self/mounts", "re");
@@ -147,7 +147,7 @@ static void walk(struct hushd *d, const char *from)
 
 int cg_init(struct hushd *d)
 {
-	int ret = d->cg_root[0] ? 0 : find_root(d->cg_root, sizeof(d->cg_root));
+	int ret = d->cg_root[0] ? 0 : cg_find_root(d->cg_root, sizeof(d->cg_root));
 
 	if (ret) {
 		log_err("no cgroup v2 mount found; cgroup rules cannot be applied");

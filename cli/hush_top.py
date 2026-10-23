@@ -19,11 +19,17 @@ def main():
     policy_path = Path(__file__).parent.parent / "config" / "policy.toml"
     sched.load_policy(str(policy_path))
 
-    # Prepopulate tasks
+    # Prepopulate tasks. Classes are set explicitly (as in demo/server.py):
+    # these demo names are not covered by the policy rules.
+    def add(tid, comm, cgroup, cls):
+        t = sched.register_task(tid, tid, comm, cgroup)
+        t.base_class = cls
+        sched.enqueue(t, 0.0)
+
     for i in range(1, 4):
-        sched.enqueue(sched.register_task(100+i, 100+i, f"fg_task_{i}", "/user.slice"), 0.0)
+        add(100 + i, f"fg_task_{i}", "/user.slice", CLASS_FOREGROUND)
     for i in range(1, 7):
-        sched.enqueue(sched.register_task(200+i, 200+i, f"bg_build_{i}", "/system.slice"), 0.0)
+        add(200 + i, f"bg_build_{i}", "/system.slice", CLASS_BACKGROUND)
 
     sim_time = 0.0
 

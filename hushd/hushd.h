@@ -104,6 +104,8 @@ int cg_init(struct hushd *d);
 int cg_resync(struct hushd *d);
 void cg_handle_events(struct hushd *d);
 void cg_fini(struct hushd *d);
+/* Mount point of the cgroup v2 hierarchy. */
+int cg_find_root(char *out, size_t len);
 /* Path of @pid's cgroup v2 relative to the root, e.g. "/user.slice/x.scope". */
 int cg_path_of_pid(int pid, char *out, size_t len);
 
